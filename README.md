@@ -11,6 +11,9 @@ When I had been teaching Machine Learning my students had asked me if there is a
 Since then some of my linguistic students told me that they cannot handle math for it, and some non-linguistic people have said that they would prefer a ready debugged script. I put it here and I was allowed to publish it on scikit-learn mailing list. Dozens of people  have cloned it.
 
 ### The repo content
-The repository contains a notebook `Numeric_Elbow_Method_for_K-Means_Clustering_with_Justification.ipynb`. In it I explain how a visual application of Elbow method fails in some cases. In addition here is a video which demonstrates what happens when a horizontal axis shrinks, it is called CompressingHorizonalAxis.mkv. The function separate version can be found in the file NumericElbowMethod.py, and it is called `ElbowMethod`.
+The repository contains a jupiter notebook `Numeric_Elbow_Method_for_K-Means_Clustering_with_Justification.ipynb`. In it I explain how a visual application of Elbow method fails in some cases. In addition here is a video which demonstrates what happens when a horizontal axis shrinks, it is called CompressingHorizonalAxis.mkv. The function separate version can be found in the file NumericElbowMethod.py, and it is called `ElbowMethod`.
+
+Recently I created a method working similarly to usual scikit-learn objects. It is called `EstimatedClusterNumberWithWCSS.py`. You can see an example of its application in a jupiter notebook `A scikit-learn compatible method with WCSS metric.ipynb`.
+
 
 I will be grateful for a feedback! You can leave it by clicking on "Issues" in the left upper corner of the screen. 

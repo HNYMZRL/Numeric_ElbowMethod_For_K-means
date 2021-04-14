@@ -7,7 +7,7 @@ Created on Fri Mar 12 20:11:42 2021
 
 """
     The methods estimates a possible good enough number of clusters under
-    given conditions.
+    given conditions using numeric version of Elbow method.
     In case such number does not exists we still get a number, but a
     warning will be issued that the clustering was not reliable.
 
@@ -16,20 +16,18 @@ Created on Fri Mar 12 20:11:42 2021
     array:  a numpy array of data. Must be of shape (n_points, n_features).
 
     start: int, default=1
-        The minimal number of clusters you want to consider. Remember
-        that it will be omitted from calculation as a border number.
+        The minimal number of clusters to consider.
 
     end:  int, default=11
-        The maximal number of clusters for which you want to compute
-        squared distances of samples to their closest cluster center measure.
+        The maximal number of clusters to consider.
+
+    threshold: float, default=0.67
+        The minimal proportion of cluster number frequency among all runs
+        for the clustering to be consider as a reasonable choice under
+        given conditions.
 
     init: {'k-means++', 'random', ndarray, callable}, default='k-means++'
         Method for initialization, see K-means documentation.
-
-    treshold: float, default=0.67
-        The minimal proportion of cluster number frequency among all runs
-        for the clustering to be consider as a reasonable choice under
-        given conditons.
 
     subset: float, default=0.997
         A random subset of provided array to cluster for a each run. It
@@ -66,7 +64,7 @@ Created on Fri Mar 12 20:11:42 2021
         A one-dimensional array of optimal cluster numbers.
 
     cluster_frequencies_
-        A dictinary with cluster numbers and their corresponding
+        A dictionary with cluster numbers and their corresponding
         frequences which were calculated by the method as good ones.
         It is sorted by frequences in descending order.
 
@@ -81,8 +79,7 @@ class NumericElbowMethod(BaseEstimator):
         start=2,
         end=11,
         n_init=51,
-        metric="elbow",
-        treshold=0.67,
+        threshold=0.67,
         subset=0.997,
         # K-means parameters
         kmeans_n_init=30,
@@ -90,34 +87,31 @@ class NumericElbowMethod(BaseEstimator):
         init="k-means++",
         random_state=None,
         **kwargs):
-            self.start = start
-            self.end = end
-            self.n_init = n_init
-            self.metric = "elbow"
-            self.treshold = treshold
-            self.subset = subset
-            # K-means parameters
-            self.kmeans_n_init = kmeans_n_init
-            self.max_iter = max_iter
-            self.init = init
-            self.random_state = random_state
+        self.start = start
+        self.end = end
+        self.n_init = n_init
+        self.threshold = threshold
+        self.subset = subset
+        # K-means parameters
+        self.kmeans_n_init = kmeans_n_init
+        self.max_iter = max_iter
+        self.init = init
+        self.random_state = random_state
     
     def fit(self, array, y=None):
         import numpy as np
         # from tqdm import trange
         from sklearn.cluster import KMeans
-        from sklearn.metrics import silhouette_score
-        
+
         estimated_ = [0] * self.n_init
         arr_size = int(array.shape[0] * self.subset)
         # end points should be evaluated for clustering, too
         start = max([1, self.start - 1])
         end = self.end + 1
-        # for j in trange(self.n_init, desc="cluster number estimations"):
+        # for j in trange(self.n_init):
         for j in range(self.n_init):
             indx = end - start + 1
             wcss = np.zeros(indx)  # placehodler for within_cluster_sum_squares
-            slhtt = np.ones(indx) * (-1)  # placeholder for sillhouett score
             subarray = array[np.random.choice(array.shape[0], size=arr_size), :]
             for i in range(indx):
                 kmeans = KMeans(
@@ -128,32 +122,26 @@ class NumericElbowMethod(BaseEstimator):
                     random_state=self.random_state)
                 kmeans.fit(subarray)
                 wcss[i] = kmeans.inertia_
-                if i + start > 1:
-                    slhtt[i] = silhouette_score(subarray, kmeans.labels_)
             
-            if self.metric == "elbow":
-                cosines = -1 * np.ones(indx - 2)  # the angles of interes are
+            cosines = -1 * np.ones(indx - 2)  # the angles of interes are
                 # between cluster numbers, so the 1st and last clusters
                 # do not contribute any angles.
-                for i in range(indx - 2):
-                    # check if the point is below a midpoint of segment 
-                    # connecting its neighbors
-                    if wcss[i + 1] < (wcss[i + 2] + wcss[i]) / 2:
-                        cosines[i] = (
-                            (-1 + (wcss[i] - wcss[i + 1]) *
-                            (wcss[i + 2] - wcss[i + 1]))
-                            / (
-                                (1 + (wcss[i] - wcss[i + 1]) ** 2)
-                                * (1 + (wcss[i + 2] - wcss[i + 1]) ** 2)
-                            )
-                            ** 0.5
-                            )
-                
-                estimated_[j] = np.flip(np.argsort(cosines))[0] + start + 1
-            else:
-                estimated_[j] = max(slhtt)
-                print("silhouette")
-        
+            for i in range(indx - 2):
+                # check if the point is below a midpoint of segment 
+                # connecting its neighbors
+                if wcss[i + 1] < (wcss[i + 2] + wcss[i]) / 2:
+                    cosines[i] = (
+                        (-1 + (wcss[i] - wcss[i + 1]) *
+                        (wcss[i + 2] - wcss[i + 1]))
+                        / (
+                            (1 + (wcss[i] - wcss[i + 1]) ** 2)
+                            * (1 + (wcss[i + 2] - wcss[i + 1]) ** 2)
+                        )
+                        ** 0.5
+                        )
+            
+            estimated_[j] = np.flip(np.argsort(cosines))[0] + start + 1
+
         count_dict = dict()
         most_frequent = estimated_[0]
         for nu in estimated_:
@@ -165,7 +153,7 @@ class NumericElbowMethod(BaseEstimator):
             if count_dict[most_frequent] < count_dict[nu]:
                 most_frequent = nu
         
-        if count_dict[most_frequent] < self.treshold * self.n_init + 1:
+        if count_dict[most_frequent] < self.threshold * self.n_init + 1:
             print(
                 """\nWarning:\t The clustering did not produce a
                       reliable result, although it can suffice for
